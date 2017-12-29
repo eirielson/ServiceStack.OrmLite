@@ -40,12 +40,10 @@ namespace ServiceStack.OrmLite
 
         internal static ModelDefinition GetModelDefinition(this Type modelType)
         {
-            ModelDefinition modelDef;
-
-            if (typeModelDefinitionMap.TryGetValue(modelType, out modelDef))
+            if (typeModelDefinitionMap.TryGetValue(modelType, out var modelDef))
                 return modelDef;
 
-            if (modelType.IsValueType() || modelType == typeof(string))
+            if (modelType.IsValueType || modelType == typeof(string))
                 return null;
 
             var modelAliasAttr = modelType.FirstAttribute<AliasAttribute>();
@@ -97,11 +95,11 @@ namespace ServiceStack.OrmLite
                     || propertyInfo.HasAttributeNamed(typeof(PrimaryKeyAttribute).Name);
 
                 var isRowVersion = propertyInfo.Name == ModelDefinition.RowVersionName
-                    && propertyInfo.PropertyType == typeof(ulong);
+                    && (propertyInfo.PropertyType == typeof(ulong) || propertyInfo.PropertyType == typeof(byte[]));
 
                 var isNullableType = propertyInfo.PropertyType.IsNullableType();
 
-                var isNullable = (!propertyInfo.PropertyType.IsValueType()
+                var isNullable = (!propertyInfo.PropertyType.IsValueType
                                    && !propertyInfo.HasAttributeNamed(typeof(RequiredAttribute).Name))
                                    || isNullableType;
 
@@ -141,21 +139,21 @@ namespace ServiceStack.OrmLite
                     IsPrimaryKey = isPrimaryKey,
                     AutoIncrement =
                         isPrimaryKey &&
-                        propertyInfo.HasAttributeNamed(nameof(AutoIncrementAttribute)),
+                        propertyInfo.HasAttribute<AutoIncrementAttribute>(),
                     IsIndexed = !isPrimaryKey && isIndex,
                     IsUnique = isUnique,
                     IsClustered = indexAttr != null && indexAttr.Clustered,
                     IsNonClustered = indexAttr != null && indexAttr.NonClustered,
                     IsRowVersion = isRowVersion,
-                    IgnoreOnInsert = propertyInfo.HasAttributeNamed(nameof(IgnoreOnInsertAttribute)),
-                    IgnoreOnUpdate = propertyInfo.HasAttributeNamed(nameof(IgnoreOnUpdateAttribute)),
+                    IgnoreOnInsert = propertyInfo.HasAttribute<IgnoreOnInsertAttribute>(),
+                    IgnoreOnUpdate = propertyInfo.HasAttribute<IgnoreOnUpdateAttribute>(),
                     FieldLength = stringLengthAttr?.MaximumLength,
                     DefaultValue = defaultValueAttr?.DefaultValue,
                     CheckConstraint = chkConstraintAttr?.Constraint,
                     ForeignKey = fkAttr == null
                         ? referencesAttr != null ? new ForeignKeyConstraint(referencesAttr.Type) : null
                         : new ForeignKeyConstraint(fkAttr.Type, fkAttr.OnDelete, fkAttr.OnUpdate, fkAttr.ForeignKeyName),
-                    IsReference = referenceAttr != null && propertyType.IsClass(),
+                    IsReference = referenceAttr != null && propertyType.IsClass,
                     GetValueFn = propertyInfo.CreateGetter(),
                     SetValueFn = propertyInfo.CreateSetter(),
                     Sequence = sequenceAttr != null ? sequenceAttr.Name : string.Empty,
@@ -168,7 +166,7 @@ namespace ServiceStack.OrmLite
                     IsRefType = propertyType.IsRefType(),
                 };
 
-                var isIgnored = propertyInfo.HasAttributeNamed(nameof(IgnoreAttribute))
+                var isIgnored = propertyInfo.HasAttribute<IgnoreAttribute>()
                     || fieldDefinition.IsReference;
                 if (isIgnored)
                     modelDef.IgnoredFieldDefinitions.Add(fieldDefinition);
